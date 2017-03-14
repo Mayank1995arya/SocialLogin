@@ -169,7 +169,7 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-     
+
             if (requestCode == RC_SIGN_IN) {
                 GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
                 handleSignInResult(result);
