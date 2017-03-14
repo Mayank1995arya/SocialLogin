@@ -15,8 +15,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -40,13 +38,8 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.OptionalPendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
-import com.google.android.gms.plus.PlusOneButton;
-import com.linkedin.platform.APIHelper;
 import com.linkedin.platform.LISessionManager;
-import com.linkedin.platform.errors.LIApiError;
 import com.linkedin.platform.errors.LIAuthError;
-import com.linkedin.platform.listeners.ApiListener;
-import com.linkedin.platform.listeners.ApiResponse;
 import com.linkedin.platform.listeners.AuthListener;
 import com.linkedin.platform.utils.Scope;
 
@@ -68,31 +61,36 @@ import io.fabric.sdk.android.Fabric;
 
 public class MainActivity extends FragmentActivity
         implements View.OnClickListener, GoogleApiClient.OnConnectionFailedListener {
+
     private static final String TAG = MainActivity.class.getSimpleName();
-    //Linked in button
-    private static final int LINKED_IN =6,RC_SIGN_IN = 7,FACEBOOK=8;
-    private Button linkedin;
+
+    //Linked in button 
+    private Button linkedinLogIn;
+    private static final int LINKED_IN = 6, RC_SIGN_IN = 7;
     private static final String host = "api.linkedin.com";
     private static final String topCardUrl = "https://" + host
             + "/v1/people/~:(id,first-name,last-name,public-profile-url,picture-url,email-address,picture-urls::(original))";
-
-    //facebook button
-    public LoginButton loginButton;
+    //Twitter button
+    private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
+    private static final String TWITTER_SECRET = "V8uP5QHBvCoG9DqxvXMVMtsqtqP8aO9wVneGDUDJ7tHvo6taAb";
+    //Facebook button
+    public LoginButton facebookLogIn;
     public CallbackManager callbackManager;
     public String PACKAGE = "com.example.virtuos_4.sociallogin";
+    
+    //Used   key hash +J+3yf/mrgPgKeg1llIttpSjcws=  Release key HASH:   zY00cczs2SG28RTn1bZQvsCftvI=
+   //Textview for hash key and other results
+    public TextView tv1, tv2;
+ 
     private GoogleApiClient client;
-    //  key hash +J+3yf/mrgPgKeg1llIttpSjcws=  Release key HASH:   zY00cczs2SG28RTn1bZQvsCftvI=
     //Google+ Login button
     private GoogleApiClient mGoogleApiClient;
     private ProgressDialog mProgressDialog;
-    private SignInButton btnSignIn;
+    private SignInButton googleLogIn;
     private Button btnSignOut, btnRevokeAccess;
-    public  TextView tv1,tv2;
-//twitter handle
-private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
-    private static final String TWITTER_SECRET = "V8uP5QHBvCoG9DqxvXMVMtsqtqP8aO9wVneGDUDJ7tHvo6taAb";
-    private TwitterLoginButton twitterLoginButton;
+    private TwitterLoginButton twitterLogIn;
 
+//-------------------------------------------onCreate-------------------------------------------------------------
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -100,19 +98,19 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
         AppEventsLogger.activateApp(this);
         setContentView(R.layout.activity_main);
         generateHashkey();
-        //
+        //Twitter authentication
         TwitterAuthConfig authConfig = new TwitterAuthConfig(TWITTER_KEY, TWITTER_SECRET);
         Fabric.with(this, new Twitter(authConfig));
-        //
-        linkedin = (Button) findViewById(R.id.signin_linkedin);
-        linkedin.setOnClickListener(this);
-        tv1=(TextView)findViewById(R.id.textView1);
-        tv2=(TextView)findViewById(R.id.textView2);
+        //Linked in clickListener
+        linkedinLogIn = (Button) findViewById(R.id.signin_linkedin);
+        linkedinLogIn.setOnClickListener(this);
+        tv1 = (TextView) findViewById(R.id.textView1);
+        tv2 = (TextView) findViewById(R.id.textView2);
         //faccebook callback
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
         callbackManager = CallbackManager.Factory.create();
-        LoginButton loginButton = (LoginButton)findViewById(R.id.login_button);
-        loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+        LoginButton facebookLogIn = (LoginButton) findViewById(R.id.login_button);
+        facebookLogIn.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
             @Override
             public void onSuccess(LoginResult loginResult) {
 
@@ -131,10 +129,10 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
         });
 
         //google+ login
-        btnSignIn = (SignInButton) findViewById(R.id.btn_sign_in);
+        googleLogIn = (SignInButton) findViewById(R.id.btn_sign_in);
         btnSignOut = (Button) findViewById(R.id.btn_sign_out);
         btnRevokeAccess = (Button) findViewById(R.id.btn_revoke_access);
-        btnSignIn.setOnClickListener(this);
+        googleLogIn.setOnClickListener(this);
         btnSignOut.setOnClickListener(this);
         btnRevokeAccess.setOnClickListener(this);
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -146,61 +144,58 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
                 .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
                 .build();
 
-        btnSignIn.setSize(SignInButton.SIZE_STANDARD);
-        btnSignIn.setScopes(gso.getScopeArray());
-        //Twitter
-        twitterLoginButton=(TwitterLoginButton)findViewById(R.id.twitter_login);
-       twitterLoginButton.setCallback(new Callback<TwitterSession>() {
-           @Override
-           public void success(Result<TwitterSession> result) {
-               TwitterSession session=result.data;
-               String msg = "@" + session.getUserName() + " logged in! (#" + session.getUserId() + ")";
-               Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-           }
+        googleLogIn.setSize(SignInButton.SIZE_STANDARD);
+        googleLogIn.setScopes(gso.getScopeArray());
+        //Twitter callback
+        twitterLogIn = (TwitterLoginButton) findViewById(R.id.twitter_login);
+        twitterLogIn.setCallback(new Callback<TwitterSession>() {
+            @Override
+            public void success(Result<TwitterSession> result) {
+                TwitterSession session = result.data;
+                String msg = "@" + session.getUserName() + " logged in! (#" + session.getUserId() + ")";
+                Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+            }
 
-           @Override
-           public void failure(TwitterException exception) {
-               Log.d("TwitterKit", "Login with Twitter failure", exception);
-           }
-       });
+            @Override
+            public void failure(TwitterException exception) {
+                Log.d("TwitterKit", "Login with Twitter failure", exception);
+            }
+        });
     }
+
 
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RC_SIGN_IN) {
+            GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
+            handleSignInResult(result);
+        } else if (requestCode == 64206) {
+            callbackManager.onActivityResult(requestCode, resultCode, data);
+        } else if (requestCode == 3672) {
+            LISessionManager.getInstance(getApplicationContext()).onActivityResult(this, requestCode, resultCode, data);
+            Intent i = new Intent(MainActivity.this, User.class);
+            startActivityForResult(i, LINKED_IN);
+        } else if (requestCode == 140) {
+            twitterLogIn.onActivityResult(requestCode, resultCode, data);
 
-            if (requestCode == RC_SIGN_IN) {
-                GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
-                handleSignInResult(result);
-            } else if (requestCode == 64206) {
-                callbackManager.onActivityResult(requestCode, resultCode, data);
-            }
-            else if(requestCode== 3672) {
-                 LISessionManager.getInstance(getApplicationContext()).onActivityResult(this, requestCode, resultCode, data);
-                  Intent i=new Intent(MainActivity.this,User.class);
-                 startActivityForResult(i,LINKED_IN);
-            }
-            else
-             {
-                twitterLoginButton.onActivityResult(requestCode, resultCode, data);
-
-            }
         }
+    }
 
-//facebook onCreateView
-
+    //-----------------------------------------------------------------------------------------------------
+    //facebook RegisterCallBack
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.com_facebook_login_fragment, container, false);
 
-        loginButton = (LoginButton) view.findViewById(R.id.login_button);
-        loginButton.setReadPermissions("email");
+        facebookLogIn = (LoginButton) view.findViewById(R.id.login_button);
+        facebookLogIn.setReadPermissions("email");
         // If using in a fragment
-        //loginButton.setFragment(this);
+        //facebookLogIn.setFragment(this);
         // Other app specific specialization
 
         // Callback registration
-        loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+        facebookLogIn.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
             @Override
             public void onSuccess(LoginResult loginResult) {
                 // App code
@@ -218,10 +213,13 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
         });
         return view;
     }
-    //
+    //linked in Methods
+    private static Scope buildScope() {
+        return Scope.build(Scope.R_BASICPROFILE, Scope.R_EMAILADDRESS);
+    }
 
-    //linked in functions
 
+//hash key generation for app registeration
     public void generateHashkey() {
         try {
             PackageInfo info = getPackageManager().getPackageInfo(PACKAGE, PackageManager.GET_SIGNATURES);
@@ -239,11 +237,7 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
             Log.d(TAG, e.getMessage(), e);
         }
     }
-
-    private static Scope buildScope() {
-        return Scope.build(Scope.R_BASICPROFILE, Scope.R_EMAILADDRESS);
-    }
-
+// On Linked in login onAuthSuccess or onAuthFailure
     public void linkedinlogin() {
         Toast.makeText(getApplicationContext(), "linkedin login ran", Toast.LENGTH_SHORT).show();
         LISessionManager.getInstance(MainActivity.this).init(this, buildScope(), new AuthListener() {
@@ -260,7 +254,7 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
             }
         }, true);
     }
-
+//displaying User data
     public void setText(JSONObject result) throws JSONException {
 
         tv1.setText(result.get("emailAddress").toString());
@@ -282,7 +276,7 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
                 .setActionStatus(Action.STATUS_TYPE_COMPLETED)
                 .build();
     }
-
+//Google client.connect() displaying processing dialog and handling result
     @Override
     public void onStart() {
         super.onStart();
@@ -314,6 +308,7 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
         }
     }
 
+    //client.disconnect
     @Override
     public void onStop() {
         super.onStop();
@@ -325,31 +320,34 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
     }
 
     //google+ methods
+    //Sing in
     private void signIn() {
         Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
         startActivityForResult(signInIntent, RC_SIGN_IN);
     }
+//sign out
     private void signOut() {
         Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(
                 new ResultCallback<Status>() {
                     @Override
                     public void onResult(Status status) {
                         updateUI(false);
-                        Toast.makeText(getApplicationContext(),"Success",Toast.LENGTH_SHORT);
+                        Toast.makeText(getApplicationContext(), "Success", Toast.LENGTH_SHORT);
                     }
                 });
     }
-
+// Revoking access
     private void revokeAccess() {
         Auth.GoogleSignInApi.revokeAccess(mGoogleApiClient).setResultCallback(
                 new ResultCallback<Status>() {
                     @Override
                     public void onResult(Status status) {
-                       updateUI(false);
-                        Toast.makeText(getApplicationContext(),"Failure",Toast.LENGTH_SHORT);
+                        updateUI(false);
+                        Toast.makeText(getApplicationContext(), "Failure", Toast.LENGTH_SHORT);
                     }
                 });
     }
+//handling result and dislpaying data
     private void handleSignInResult(GoogleSignInResult result) {
         Log.d(TAG, "handleSignInResult:" + result.isSuccess());
         if (result.isSuccess()) {
@@ -371,6 +369,7 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
             // Signed out, show unauthenticated UI.
         }
     }
+//connection failed
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
         // An unresolvable error has occurred and Google APIs (including Sign-In) will not
@@ -378,7 +377,7 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
         Log.d(TAG, "onConnectionFailed:" + connectionResult);
     }
 
-
+//process dialog methods
     private void showProgressDialog() {
         if (mProgressDialog == null) {
             mProgressDialog = new ProgressDialog(this);
@@ -387,22 +386,26 @@ private static final String TWITTER_KEY = "AbZ1YPFhseTDiRKJQJhvwx9NN";
         }
         mProgressDialog.show();
     }
+
     private void hideProgressDialog() {
         if (mProgressDialog != null && mProgressDialog.isShowing()) {
             mProgressDialog.hide();
         }
     }
+//UI update if adding new buttons or displaying new layout on successful signin
     private void updateUI(boolean isSignedIn) {
         if (isSignedIn) {
-            btnSignIn.setVisibility(View.GONE);
+            googleLogIn.setVisibility(View.GONE);
             btnSignOut.setVisibility(View.VISIBLE);
             btnRevokeAccess.setVisibility(View.VISIBLE);
         } else {
-            btnSignIn.setVisibility(View.VISIBLE);
+            googleLogIn.setVisibility(View.VISIBLE);
             btnSignOut.setVisibility(View.GONE);
             btnRevokeAccess.setVisibility(View.GONE);
         }
     }
+
+    //onClick buttons
     @Override
     public void onClick(View v) {
         int id = v.getId();
